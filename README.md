@@ -21,7 +21,7 @@ A Python-based engineering project focused on PCB image processing and automated
 Clone the repository:
 
 ```bash
-git clone <your-repository-url>
+git clone <(https://github.com/Lonelywolfarko/Final-Year-project)>
 cd Final-Year-project
 ```
 
