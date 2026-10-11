@@ -83,7 +83,8 @@ def draw_contours(image, contours):
 def detect_pad_candidates(
     contours,
     min_area=50,
-    max_area=5000
+    max_area=5000,
+    min_circularity=0.5
 ):
     pad_candidates = []
 
@@ -91,19 +92,36 @@ def detect_pad_candidates(
 
         area = cv2.contourArea(contour)
 
-        if min_area <= area <= max_area:
+        if area < min_area or area > max_area:
+            continue
 
-            x, y, w, h = cv2.boundingRect(
-                contour
-            )
+        perimeter = cv2.arcLength(
+            contour,
+            True
+        )
 
-            pad_candidates.append({
-                "x": x,
-                "y": y,
-                "width": w,
-                "height": h,
-                "area": area
-            })
+        if perimeter == 0:
+            continue
+
+        circularity = (
+            4 * 3.14159 * area
+        ) / (perimeter * perimeter)
+
+        if circularity < min_circularity:
+            continue
+
+        x, y, w, h = cv2.boundingRect(
+            contour
+        )
+
+        pad_candidates.append({
+            "x": x,
+            "y": y,
+            "width": w,
+            "height": h,
+            "area": area,
+            "circularity": circularity
+        })
 
     return pad_candidates
 
@@ -130,3 +148,34 @@ def draw_pad_candidates(
         )
 
     return output
+import cv2
+
+image = cv2.imread("input/pcb_sample.jpeg")
+
+height, width, channels = image.shape
+
+pink = (255, 0, 255)
+
+# Top-left
+cv2.circle(image, (0, 0), 8, pink, -1)
+
+# Bottom-right
+cv2.circle(
+    image,
+    (width - 1, height - 1),
+    8,
+    pink,
+    -1
+)
+
+cv2.imwrite(
+    "output/corners_pink.jpg",
+    image
+)
+
+print("Image size:", width, "x", height)
+print("Top-left:", (0, 0))
+print(
+    "Bottom-right:",
+    (width - 1, height - 1)
+)
