@@ -179,3 +179,27 @@ print(
     "Bottom-right:",
     (width - 1, height - 1)
 )
+
+def mark_deviating_points(image, points):
+    points = points.reshape(-1, 2)
+
+    for i in range(1, len(points) - 1):
+        x1, y1 = map(int, points[i - 1])
+        x2, y2 = map(int, points[i])
+        x3, y3 = map(int, points[i + 1])
+
+        result = (
+            (y2 - y1) * (x3 - x2)
+            - (y3 - y2) * (x2 - x1)
+        )
+
+        if result != 0:
+            cv2.circle(
+                image,
+                (x2, y2),
+                3,
+                (0, 0, 255),
+                -1
+            )
+
+    return image

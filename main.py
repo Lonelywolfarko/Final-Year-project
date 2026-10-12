@@ -7,7 +7,8 @@ from src.image_processor import (
     get_external_contours,
     draw_contours,
     detect_pad_candidates,
-    draw_pad_candidates
+    draw_pad_candidates,
+    mark_deviating_points
 )
 
 
@@ -131,3 +132,22 @@ cv2.imwrite(
 print(
     "Saved: output/pad_candidates.jpg"
 )
+
+# -----------------------------
+# 9. Mark deviating points
+# -----------------------------
+
+deviation_output = image.copy()
+
+for contour in external_contours:
+    deviation_output = mark_deviating_points(
+        deviation_output,
+        contour
+    )
+
+cv2.imwrite(
+    "output/deviating_points.jpg",
+    deviation_output
+)
+
+print("Saved: output/deviating_points.jpg")
