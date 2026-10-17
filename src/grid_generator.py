@@ -166,3 +166,37 @@ cv2.imwrite(
 )
 
 print("Saved output/pcb_component_analysis.png")
+
+# Step 6.5: Show component IDs on the original PCB
+
+labeled_image = image.copy()
+
+for label in component_ids[:25]:
+    x, y, w, h, area = stats[label]
+
+    # Draw the component's bounding box
+    cv2.rectangle(
+        labeled_image,
+        (x, y),
+        (x + w, y + h),
+        (0, 0, 255),
+        2
+    )
+
+    # Display component ID
+    cv2.putText(
+        labeled_image,
+        str(label),
+        (x, max(y - 5, 15)),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (0, 255, 0),
+        2
+    )
+
+cv2.imwrite(
+    "output/pcb_largest_components.png",
+    labeled_image
+)
+
+print("Saved output/pcb_largest_components.png")
