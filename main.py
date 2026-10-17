@@ -8,7 +8,10 @@ from src.image_processor import (
     draw_contours,
     detect_pad_candidates,
     draw_pad_candidates,
-    mark_deviating_points
+    mark_deviating_points,
+    create_copper_mask,
+    detect_copper_regions,
+    detect_circular_external_contours,
 )
 
 
@@ -151,3 +154,38 @@ cv2.imwrite(
 )
 
 print("Saved: output/deviating_points.jpg")
+
+# Create an initial copper mask
+copper_mask = create_copper_mask(image)
+
+cv2.imwrite(
+    "output/copper_mask.png",
+    copper_mask
+)
+
+print("Saved: output/copper_mask.png")
+
+regions, region_output = detect_copper_regions(
+    copper_mask
+)
+
+cv2.imwrite(
+    "output/copper_regions.png",
+    region_output
+)
+
+print("Copper regions detected:", len(regions))
+
+for region in regions[:20]:
+    print(region)
+
+# Detect circular contours using geometric checks only
+circular_image, circular_contours = (
+    detect_circular_external_contours(image))
+cv2.imwrite(
+    "output/circular_contours_blue.jpg",
+    circular_image)
+print(
+    "Circular contours detected:",
+    len(circular_contours))
+print("Saved: output/circular_contours_blue.jpg")

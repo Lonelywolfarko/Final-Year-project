@@ -148,37 +148,7 @@ def draw_pad_candidates(
         )
 
     return output
-import cv2
 
-image = cv2.imread("input/pcb_sample.jpeg")
-
-height, width, channels = image.shape
-
-pink = (255, 0, 255)
-
-# Top-left
-cv2.circle(image, (0, 0), 8, pink, -1)
-
-# Bottom-right
-cv2.circle(
-    image,
-    (width - 1, height - 1),
-    8,
-    pink,
-    -1
-)
-
-cv2.imwrite(
-    "output/corners_pink.jpg",
-    image
-)
-
-print("Image size:", width, "x", height)
-print("Top-left:", (0, 0))
-print(
-    "Bottom-right:",
-    (width - 1, height - 1)
-)
 
 def mark_deviating_points(image, points):
     points = points.reshape(-1, 2)
@@ -203,3 +173,184 @@ def mark_deviating_points(image, points):
             )
 
     return image
+
+def create_copper_mask(image, min_component_area=8):
+    """
+    Create an initial binary mask of possible copper features.
+
+    White (255): candidate copper regions
+    Black (0): background and excluded regions
+    """
+    import cv2
+    import numpy as np
+
+    gray = cv2.cvtColor(
+        image,
+        cv2.COLOR_BGR2GRAY
+    )
+
+    # Separate dark features from the lighter background
+    _, mask = cv2.threshold(
+        gray,
+        0,
+        255,
+        cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+    )
+
+    # Connect small gaps within candidate copper regions
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_RECT,
+        (3, 3)
+    )
+
+    mask = cv2.morphologyEx(
+        mask,
+        cv2.MORPH_CLOSE,
+        kernel
+    )
+
+    # Remove regions connected to the image border
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(
+        mask,
+        connectivity=8
+    )
+
+    cleaned = np.zeros_like(mask)
+
+    height, width = mask.shape
+
+    border_labels = set(labels[0, :])
+    border_labels.update(labels[height - 1, :])
+    border_labels.update(labels[:, 0])
+    border_labels.update(labels[:, width - 1])
+    border_labels.discard(0)
+
+    for label in range(1, count):
+        area = stats[label, cv2.CC_STAT_AREA]
+
+        if label in border_labels:
+            continue
+
+        if area < min_component_area:
+            continue
+
+        cleaned[labels == label] = 255
+
+    return cleaned
+
+def detect_copper_regions(copper_mask, min_area=8):
+    """
+    Detect connected regions in a binary copper mask.
+
+    Returns region metadata and a visualization.
+    """
+    import cv2
+
+    count, labels, stats, centroids = (
+        cv2.connectedComponentsWithStats(
+            copper_mask,
+            connectivity=8
+        )
+    )
+
+    regions = []
+    output = cv2.cvtColor(
+        copper_mask,
+        cv2.COLOR_GRAY2BGR
+    )
+
+    for label in range(1, count):
+        x = stats[label, cv2.CC_STAT_LEFT]
+        y = stats[label, cv2.CC_STAT_TOP]
+        w = stats[label, cv2.CC_STAT_WIDTH]
+        h = stats[label, cv2.CC_STAT_HEIGHT]
+        area = stats[label, cv2.CC_STAT_AREA]
+
+        if area < min_area:
+            continue
+
+        regions.append({
+            "label": label,
+            "x": int(x),
+            "y": int(y),
+            "width": int(w),
+            "height": int(h),
+            "area": int(area),
+            "centroid": tuple(
+                centroids[label]
+            )
+        })
+
+        cv2.rectangle(
+            output,
+            (x, y),
+            (x + w, y + h),
+            (0, 0, 255),
+            1
+        )
+
+    return regions, output
+
+def detect_circular_external_contours(
+    image,
+    min_area=80,
+    min_circularity=0.8,
+    min_fill=0.8
+):
+    """
+    Detect circular contours using geometric checks only.
+
+    Returns a tuple of:
+      - annotated image (BGR copy with circles drawn in blue)
+      - list of accepted contours
+    """
+    import numpy as np
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    _, bw = cv2.threshold(
+        gray,
+        0,
+        255,
+        cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+
+    cnts, hier = cv2.findContours(
+        bw,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_NONE
+    )
+
+    circular_contours = []
+    output = image.copy()
+
+    for i, c in enumerate(cnts):
+        area = cv2.contourArea(c)
+        per = cv2.arcLength(c, True)
+
+        if area < min_area or per == 0:
+            continue
+
+        circularity = 4 * np.pi * area / per ** 2
+
+        (cx, cy), r = cv2.minEnclosingCircle(c)
+        fill = area / (np.pi * r ** 2)
+
+        if circularity > min_circularity and fill > min_fill:
+            circular_contours.append(c)
+            cv2.circle(
+                output,
+                (int(cx), int(cy)),
+                int(r),
+                (255, 0, 0),
+                2
+            )
+            cv2.circle(
+                output,
+                (int(cx), int(cy)),
+                2,
+                (0, 255, 255),
+                -1
+            )
+
+    return output, circular_contours
