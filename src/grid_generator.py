@@ -122,3 +122,47 @@ _, binary = cv2.threshold(
 cv2.imwrite("output/pcb_binary.png", binary)
 
 print("Saved output/pcb_binary.png")
+
+# Step 6.2: Analyse connected white regions by shape
+
+num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+    binary,
+    connectivity=8
+)
+
+component_view = np.zeros((height, width, 3), dtype=np.uint8)
+
+# Diagnostic threshold only; not a final fill detector
+large_area = int(height * width * 0.01)
+
+component_ids = sorted(
+    range(1, num_labels),
+    key=lambda i: stats[i, cv2.CC_STAT_AREA],
+    reverse=True
+)
+
+print("\nLargest connected components:")
+print("Label | Area | Width | Height | Aspect ratio")
+
+for label in component_ids[:25]:
+    x, y, w, h, area = stats[label]
+
+    aspect_ratio = max(w, h) / max(1, min(w, h))
+
+    # Color large components red, smaller ones green
+    if area >= large_area:
+        component_view[labels == label] = (0, 0, 255)
+    else:
+        component_view[labels == label] = (0, 255, 0)
+
+    print(
+        f"{label:5} | {area:7} | {w:5} | {h:6} | "
+        f"{aspect_ratio:.2f}"
+    )
+
+cv2.imwrite(
+    "output/pcb_component_analysis.png",
+    component_view
+)
+
+print("Saved output/pcb_component_analysis.png")
